@@ -124,8 +124,6 @@ background:#fafafa;
 
 <div class="container">
 
-<!-- MASTER BAHAN -->
-
 <div id="raw" class="section active card">
 
 <h2>Master Bahan</h2>
@@ -135,17 +133,9 @@ background:#fafafa;
 
 <button onclick="saveRaw()">Save</button>
 
-<br><br>
-
-<button class="templateBtn" onclick="downloadTemplate('raw')">Download Template</button>
-<input type="file" onchange="uploadRaw(event)">
-
 <table id="rawTable"></table>
 
 </div>
-
-
-<!-- WIP -->
 
 <div id="wip" class="section card">
 
@@ -164,11 +154,6 @@ background:#fafafa;
 <button onclick="addWipRecipe()">Tambah</button>
 <button onclick="saveWip()">Save WIP</button>
 
-<br><br>
-
-<button class="templateBtn" onclick="downloadTemplate('wip')">Download Template</button>
-<input type="file" onchange="uploadWip(event)">
-
 <h3>Recipe</h3>
 <table id="wipRecipe"></table>
 
@@ -176,9 +161,6 @@ background:#fafafa;
 <table id="wipTable"></table>
 
 </div>
-
-
-<!-- MENU -->
 
 <div id="menu" class="section card">
 
@@ -199,11 +181,6 @@ background:#fafafa;
 <button onclick="addMenuRecipe()">Tambah</button>
 <button onclick="saveMenu()">Save Menu</button>
 
-<br><br>
-
-<button class="templateBtn" onclick="downloadTemplate('menu')">Download Template</button>
-<input type="file" onchange="uploadMenu(event)">
-
 <h3>Recipe</h3>
 <table id="menuRecipe"></table>
 
@@ -212,22 +189,13 @@ background:#fafafa;
 
 </div>
 
-
-<!-- TARGET -->
-
 <div id="target" class="section card">
 
 <h2>Target Penjualan</h2>
 
-<button class="templateBtn" onclick="downloadTemplate('target')">Download Template</button>
-<input type="file" onchange="uploadTarget(event)">
-
 <div id="targets"></div>
 
 </div>
-
-
-<!-- SUMMARY -->
 
 <div id="summary" class="section card">
 
@@ -250,6 +218,24 @@ let target={}
 
 let tempWip=[]
 let tempMenu=[]
+
+function saveData(){
+
+localStorage.setItem("kitchen_raw",JSON.stringify(raw))
+localStorage.setItem("kitchen_wip",JSON.stringify(wip))
+localStorage.setItem("kitchen_menu",JSON.stringify(menu))
+localStorage.setItem("kitchen_target",JSON.stringify(target))
+
+}
+
+function loadData(){
+
+raw=JSON.parse(localStorage.getItem("kitchen_raw")) || {}
+wip=JSON.parse(localStorage.getItem("kitchen_wip")) || {}
+menu=JSON.parse(localStorage.getItem("kitchen_menu")) || {}
+target=JSON.parse(localStorage.getItem("kitchen_target")) || {}
+
+}
 
 function openTab(id){
 
@@ -286,19 +272,8 @@ return ""
 function saveRaw(){
 
 raw[rawName.value]={uom:rawUom.value}
-render()
 
-}
-
-function editRaw(name){
-
-let newName=prompt("Edit Nama",name)
-let newUom=prompt("Edit UOM",raw[name].uom)
-
-delete raw[name]
-
-raw[newName]={uom:newUom}
-
+saveData()
 render()
 
 }
@@ -306,25 +281,18 @@ render()
 function deleteRaw(name){
 
 delete raw[name]
+
+saveData()
 render()
 
 }
 
 function addWipRecipe(){
 
-let parent=wipParent.value
-let qty=Number(wipQty.value)
-
-tempWip.push({parent,qty})
-
-render()
-
-}
-
-function editWipRecipe(i){
-
-let q=prompt("Edit Qty",tempWip[i].qty)
-tempWip[i].qty=Number(q)
+tempWip.push({
+parent:wipParent.value,
+qty:Number(wipQty.value)
+})
 
 render()
 
@@ -333,14 +301,13 @@ render()
 function saveWip(){
 
 wip[wipName.value]={
-
 uom:wipOutputUom.value,
 recipe:[...tempWip]
-
 }
 
 tempWip=[]
 
+saveData()
 render()
 
 }
@@ -348,6 +315,8 @@ render()
 function deleteWip(name){
 
 delete wip[name]
+
+saveData()
 render()
 
 }
@@ -355,20 +324,9 @@ render()
 function addMenuRecipe(){
 
 tempMenu.push({
-
 parent:menuParent.value,
 qty:Number(menuQty.value)
-
 })
-
-render()
-
-}
-
-function editMenuRecipe(i){
-
-let q=prompt("Edit Qty",tempMenu[i].qty)
-tempMenu[i].qty=Number(q)
 
 render()
 
@@ -377,14 +335,13 @@ render()
 function saveMenu(){
 
 menu[menuName.value]={
-
 type:menuType.value,
 recipe:[...tempMenu]
-
 }
 
 tempMenu=[]
 
+saveData()
 render()
 
 }
@@ -392,6 +349,8 @@ render()
 function deleteMenu(name){
 
 delete menu[name]
+
+saveData()
 render()
 
 }
@@ -409,9 +368,7 @@ return
 if(wip[item]){
 
 wip[item].recipe.forEach(r=>{
-
 explode(r.parent,qty*r.qty,total)
-
 })
 
 }
@@ -424,23 +381,19 @@ let total={}
 
 Object.keys(target).forEach(m=>{
 
+if(!menu[m]) return
+
 let qty=target[m]
 
 menu[m].recipe.forEach(r=>{
-
 explode(r.parent,qty*r.qty,total)
-
 })
 
 })
 
 summaryTable.innerHTML="<tr><th>BAHAN</th><th>TOTAL</th><th>UOM</th></tr>"
 
-let count=0
-
 Object.keys(total).forEach(i=>{
-
-count++
 
 summaryTable.innerHTML+=`
 
@@ -455,138 +408,6 @@ summaryTable.innerHTML+=`
 `
 
 })
-
-summaryTable.innerHTML+=`
-
-<tr class="summaryTotal">
-
-<td colspan="3">
-
-TOTAL ITEM : ${count}
-
-</td>
-
-</tr>
-
-`
-
-}
-
-function downloadTemplate(type){
-
-let data=""
-
-if(type=="raw")
-data="nama,uom\ncabai,gram\nbawang,gram"
-
-if(type=="wip")
-data="wip,parent,qty\nsambal,cabai,200"
-
-if(type=="menu")
-data="menu,type,parent,qty\nayam geprek,food,sambal,50"
-
-if(type=="target")
-data="menu,target\nayam geprek,120"
-
-let blob=new Blob([data],{type:"text/csv"})
-let url=URL.createObjectURL(blob)
-
-let a=document.createElement("a")
-a.href=url
-a.download=type+"_template.csv"
-a.click()
-
-}
-
-function uploadRaw(e){
-
-let reader=new FileReader()
-
-reader.onload=function(){
-
-reader.result.split("\n").slice(1).forEach(r=>{
-
-let c=r.split(",")
-
-raw[c[0]]={uom:c[1]}
-
-})
-
-render()
-
-}
-
-reader.readAsText(e.target.files[0])
-
-}
-
-function uploadWip(e){
-
-let reader=new FileReader()
-
-reader.onload=function(){
-
-reader.result.split("\n").slice(1).forEach(r=>{
-
-let c=r.split(",")
-
-if(!wip[c[0]]) wip[c[0]]={recipe:[]}
-
-wip[c[0]].recipe.push({parent:c[1],qty:Number(c[2])})
-
-})
-
-render()
-
-}
-
-reader.readAsText(e.target.files[0])
-
-}
-
-function uploadMenu(e){
-
-let reader=new FileReader()
-
-reader.onload=function(){
-
-reader.result.split("\n").slice(1).forEach(r=>{
-
-let c=r.split(",")
-
-if(!menu[c[0]]) menu[c[0]]={type:c[1],recipe:[]}
-
-menu[c[0]].recipe.push({parent:c[2],qty:Number(c[3])})
-
-})
-
-render()
-
-}
-
-reader.readAsText(e.target.files[0])
-
-}
-
-function uploadTarget(e){
-
-let reader=new FileReader()
-
-reader.onload=function(){
-
-reader.result.split("\n").slice(1).forEach(r=>{
-
-let c=r.split(",")
-
-target[c[0]]=Number(c[1])
-
-})
-
-calculate()
-
-}
-
-reader.readAsText(e.target.files[0])
 
 }
 
@@ -607,7 +428,6 @@ rawTable.innerHTML+=`
 
 <td>
 
-<button class="edit" onclick="editRaw('${r}')">Edit</button>
 <button class="delete" onclick="deleteRaw('${r}')">Delete</button>
 
 </td>
@@ -629,12 +449,6 @@ wipRecipe.innerHTML+=`
 <td>${r.parent}</td>
 <td>${r.qty}</td>
 <td>${getUom(r.parent)}</td>
-
-<td>
-
-<button class="edit" onclick="editWipRecipe(${i})">Edit</button>
-
-</td>
 
 </tr>
 
@@ -684,12 +498,6 @@ menuRecipe.innerHTML+=`
 <td>${r.qty}</td>
 <td>${getUom(r.parent)}</td>
 
-<td>
-
-<button class="edit" onclick="editMenuRecipe(${i})">Edit</button>
-
-</td>
-
 </tr>
 
 `
@@ -736,7 +544,9 @@ ${m}
 
 <input type="number"
 
-onchange="target['${m}']=Number(this.value);calculate()"
+value="${target[m] || ""}"
+
+onchange="target['${m}']=Number(this.value);saveData();calculate()"
 
 > porsi
 
@@ -746,8 +556,11 @@ onchange="target['${m}']=Number(this.value);calculate()"
 
 })
 
+calculate()
+
 }
 
+loadData()
 render()
 
 </script>
