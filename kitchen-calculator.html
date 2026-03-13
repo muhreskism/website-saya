@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Kitchen Production Tuuk</title>
+
+<style>
+
+body{
+font-family:Segoe UI;
+background:#eceff1;
+margin:0;
+}
+
+header{
+background:#b0bec5;
+padding:18px;
+text-align:center;
+font-size:24px;
+font-weight:bold;
+}
+
+.nav{
+display:flex;
+background:#cfd8dc;
+}
+
+.nav button{
+flex:1;
+padding:12px;
+border:none;
+background:#cfd8dc;
+cursor:pointer;
+}
+
+.nav button:hover{
+background:#b0bec5;
+}
+
+.nav button.active{
+background:#78909c;
+color:white;
+}
+
+.container{
+padding:25px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:8px;
+margin-bottom:20px;
+box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+
+input,select{
+padding:7px;
+margin:4px;
+border:1px solid #bbb;
+border-radius:5px;
+}
+
+button{
+padding:6px 10px;
+border:none;
+border-radius:5px;
+background:#607d8b;
+color:white;
+cursor:pointer;
+}
+
+.edit{background:#fb8c00;}
+.delete{background:#e53935;}
+.print{background:#43a047;}
+.templateBtn{background:#3949ab;}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th{
+background:#eceff1;
+}
+
+th,td{
+padding:8px;
+border-bottom:1px solid #ddd;
+}
+
+.section{display:none;}
+.section.active{display:block;}
+
+.recipeBox{
+font-size:12px;
+background:#f5f5f5;
+padding:6px;
+border-radius:5px;
+}
+
+.summaryTotal{
+font-weight:bold;
+background:#fafafa;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>Kitchen Production Planner PRO</header>
+
+<div class="nav">
+
+<button onclick="openTab('raw')" class="active">Master Bahan</button>
+<button onclick="openTab('wip')">WIP</button>
+<button onclick="openTab('menu')">Menu</button>
+<button onclick="openTab('target')">Target</button>
+<button onclick="openTab('summary')">Summary</button>
+
+</div>
+
+<div class="container">
+
+<!-- MASTER BAHAN -->
+
+<div id="raw" class="section active card">
+
+<h2>Master Bahan</h2>
+
+<input id="rawName" placeholder="Nama bahan">
+<input id="rawUom" placeholder="UOM">
+
+<button onclick="saveRaw()">Save</button>
+
+<br><br>
+
+<button class="templateBtn" onclick="downloadTemplate('raw')">Download Template</button>
+<input type="file" onchange="uploadRaw(event)">
+
+<table id="rawTable"></table>
+
+</div>
+
+
+<!-- WIP -->
+
+<div id="wip" class="section card">
+
+<h2>Master WIP</h2>
+
+<input id="wipName" placeholder="Nama WIP">
+<input id="wipOutputUom" placeholder="UOM hasil jadi">
+
+<br>
+
+<input list="itemList" id="wipParent" placeholder="Bahan/WIP">
+<datalist id="itemList"></datalist>
+
+<input id="wipQty" type="number" placeholder="Qty">
+
+<button onclick="addWipRecipe()">Tambah</button>
+<button onclick="saveWip()">Save WIP</button>
+
+<br><br>
+
+<button class="templateBtn" onclick="downloadTemplate('wip')">Download Template</button>
+<input type="file" onchange="uploadWip(event)">
+
+<h3>Recipe</h3>
+<table id="wipRecipe"></table>
+
+<h3>Daftar WIP</h3>
+<table id="wipTable"></table>
+
+</div>
+
+
+<!-- MENU -->
+
+<div id="menu" class="section card">
+
+<h2>Master Menu</h2>
+
+<input id="menuName" placeholder="Nama Menu">
+
+<select id="menuType">
+<option value="food">Food</option>
+<option value="drink">Drink</option>
+</select>
+
+<br>
+
+<input list="itemList" id="menuParent">
+<input id="menuQty" type="number">
+
+<button onclick="addMenuRecipe()">Tambah</button>
+<button onclick="saveMenu()">Save Menu</button>
+
+<br><br>
+
+<button class="templateBtn" onclick="downloadTemplate('menu')">Download Template</button>
+<input type="file" onchange="uploadMenu(event)">
+
+<h3>Recipe</h3>
+<table id="menuRecipe"></table>
+
+<h3>Daftar Menu</h3>
+<table id="menuTable"></table>
+
+</div>
+
+
+<!-- TARGET -->
+
+<div id="target" class="section card">
+
+<h2>Target Penjualan</h2>
+
+<button class="templateBtn" onclick="downloadTemplate('target')">Download Template</button>
+<input type="file" onchange="uploadTarget(event)">
+
+<div id="targets"></div>
+
+</div>
+
+
+<!-- SUMMARY -->
+
+<div id="summary" class="section card">
+
+<h2>Summary Kebutuhan</h2>
+
+<button class="print" onclick="window.print()">Print / Save PDF</button>
+
+<table id="summaryTable"></table>
+
+</div>
+
+</div>
+
+<script>
+
+let raw={}
+let wip={}
+let menu={}
+let target={}
+
+let tempWip=[]
+let tempMenu=[]
+
+function openTab(id){
+
+document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+document.getElementById(id).classList.add("active")
+
+document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"))
+event.target.classList.add("active")
+
+}
+
+function refreshList(){
+
+itemList.innerHTML=""
+
+Object.keys(raw).forEach(i=>{
+itemList.innerHTML+=`<option value="${i}">`
+})
+
+Object.keys(wip).forEach(i=>{
+itemList.innerHTML+=`<option value="${i}">`
+})
+
+}
+
+function getUom(item){
+
+if(raw[item]) return raw[item].uom
+if(wip[item]) return wip[item].uom || "unit"
+return ""
+
+}
+
+function saveRaw(){
+
+raw[rawName.value]={uom:rawUom.value}
+render()
+
+}
+
+function editRaw(name){
+
+let newName=prompt("Edit Nama",name)
+let newUom=prompt("Edit UOM",raw[name].uom)
+
+delete raw[name]
+
+raw[newName]={uom:newUom}
+
+render()
+
+}
+
+function deleteRaw(name){
+
+delete raw[name]
+render()
+
+}
+
+function addWipRecipe(){
+
+let parent=wipParent.value
+let qty=Number(wipQty.value)
+
+tempWip.push({parent,qty})
+
+render()
+
+}
+
+function editWipRecipe(i){
+
+let q=prompt("Edit Qty",tempWip[i].qty)
+tempWip[i].qty=Number(q)
+
+render()
+
+}
+
+function saveWip(){
+
+wip[wipName.value]={
+
+uom:wipOutputUom.value,
+recipe:[...tempWip]
+
+}
+
+tempWip=[]
+
+render()
+
+}
+
+function deleteWip(name){
+
+delete wip[name]
+render()
+
+}
+
+function addMenuRecipe(){
+
+tempMenu.push({
+
+parent:menuParent.value,
+qty:Number(menuQty.value)
+
+})
+
+render()
+
+}
+
+function editMenuRecipe(i){
+
+let q=prompt("Edit Qty",tempMenu[i].qty)
+tempMenu[i].qty=Number(q)
+
+render()
+
+}
+
+function saveMenu(){
+
+menu[menuName.value]={
+
+type:menuType.value,
+recipe:[...tempMenu]
+
+}
+
+tempMenu=[]
+
+render()
+
+}
+
+function deleteMenu(name){
+
+delete menu[name]
+render()
+
+}
+
+function explode(item,qty,total){
+
+if(raw[item]){
+
+if(!total[item]) total[item]=0
+total[item]+=qty
+return
+
+}
+
+if(wip[item]){
+
+wip[item].recipe.forEach(r=>{
+
+explode(r.parent,qty*r.qty,total)
+
+})
+
+}
+
+}
+
+function calculate(){
+
+let total={}
+
+Object.keys(target).forEach(m=>{
+
+let qty=target[m]
+
+menu[m].recipe.forEach(r=>{
+
+explode(r.parent,qty*r.qty,total)
+
+})
+
+})
+
+summaryTable.innerHTML="<tr><th>BAHAN</th><th>TOTAL</th><th>UOM</th></tr>"
+
+let count=0
+
+Object.keys(total).forEach(i=>{
+
+count++
+
+summaryTable.innerHTML+=`
+
+<tr>
+
+<td>${i}</td>
+<td>${total[i].toFixed(2)}</td>
+<td>${raw[i].uom}</td>
+
+</tr>
+
+`
+
+})
+
+summaryTable.innerHTML+=`
+
+<tr class="summaryTotal">
+
+<td colspan="3">
+
+TOTAL ITEM : ${count}
+
+</td>
+
+</tr>
+
+`
+
+}
+
+function downloadTemplate(type){
+
+let data=""
+
+if(type=="raw")
+data="nama,uom\ncabai,gram\nbawang,gram"
+
+if(type=="wip")
+data="wip,parent,qty\nsambal,cabai,200"
+
+if(type=="menu")
+data="menu,type,parent,qty\nayam geprek,food,sambal,50"
+
+if(type=="target")
+data="menu,target\nayam geprek,120"
+
+let blob=new Blob([data],{type:"text/csv"})
+let url=URL.createObjectURL(blob)
+
+let a=document.createElement("a")
+a.href=url
+a.download=type+"_template.csv"
+a.click()
+
+}
+
+function uploadRaw(e){
+
+let reader=new FileReader()
+
+reader.onload=function(){
+
+reader.result.split("\n").slice(1).forEach(r=>{
+
+let c=r.split(",")
+
+raw[c[0]]={uom:c[1]}
+
+})
+
+render()
+
+}
+
+reader.readAsText(e.target.files[0])
+
+}
+
+function uploadWip(e){
+
+let reader=new FileReader()
+
+reader.onload=function(){
+
+reader.result.split("\n").slice(1).forEach(r=>{
+
+let c=r.split(",")
+
+if(!wip[c[0]]) wip[c[0]]={recipe:[]}
+
+wip[c[0]].recipe.push({parent:c[1],qty:Number(c[2])})
+
+})
+
+render()
+
+}
+
+reader.readAsText(e.target.files[0])
+
+}
+
+function uploadMenu(e){
+
+let reader=new FileReader()
+
+reader.onload=function(){
+
+reader.result.split("\n").slice(1).forEach(r=>{
+
+let c=r.split(",")
+
+if(!menu[c[0]]) menu[c[0]]={type:c[1],recipe:[]}
+
+menu[c[0]].recipe.push({parent:c[2],qty:Number(c[3])})
+
+})
+
+render()
+
+}
+
+reader.readAsText(e.target.files[0])
+
+}
+
+function uploadTarget(e){
+
+let reader=new FileReader()
+
+reader.onload=function(){
+
+reader.result.split("\n").slice(1).forEach(r=>{
+
+let c=r.split(",")
+
+target[c[0]]=Number(c[1])
+
+})
+
+calculate()
+
+}
+
+reader.readAsText(e.target.files[0])
+
+}
+
+function render(){
+
+refreshList()
+
+rawTable.innerHTML="<tr><th>Bahan</th><th>UOM</th><th>Action</th></tr>"
+
+Object.keys(raw).forEach(r=>{
+
+rawTable.innerHTML+=`
+
+<tr>
+
+<td>${r}</td>
+<td>${raw[r].uom}</td>
+
+<td>
+
+<button class="edit" onclick="editRaw('${r}')">Edit</button>
+<button class="delete" onclick="deleteRaw('${r}')">Delete</button>
+
+</td>
+
+</tr>
+
+`
+
+})
+
+wipRecipe.innerHTML=""
+
+tempWip.forEach((r,i)=>{
+
+wipRecipe.innerHTML+=`
+
+<tr>
+
+<td>${r.parent}</td>
+<td>${r.qty}</td>
+<td>${getUom(r.parent)}</td>
+
+<td>
+
+<button class="edit" onclick="editWipRecipe(${i})">Edit</button>
+
+</td>
+
+</tr>
+
+`
+
+})
+
+wipTable.innerHTML=""
+
+Object.keys(wip).forEach(w=>{
+
+let detail=""
+
+wip[w].recipe.forEach(r=>{
+detail+=`${r.parent} (${r.qty} ${getUom(r.parent)})<br>`
+})
+
+wipTable.innerHTML+=`
+
+<tr>
+
+<td>${w}</td>
+<td>${wip[w].uom}</td>
+<td class="recipeBox">${detail}</td>
+
+<td>
+
+<button class="delete" onclick="deleteWip('${w}')">Delete</button>
+
+</td>
+
+</tr>
+
+`
+
+})
+
+menuRecipe.innerHTML=""
+
+tempMenu.forEach((r,i)=>{
+
+menuRecipe.innerHTML+=`
+
+<tr>
+
+<td>${r.parent}</td>
+<td>${r.qty}</td>
+<td>${getUom(r.parent)}</td>
+
+<td>
+
+<button class="edit" onclick="editMenuRecipe(${i})">Edit</button>
+
+</td>
+
+</tr>
+
+`
+
+})
+
+menuTable.innerHTML=""
+
+Object.keys(menu).forEach(m=>{
+
+let detail=""
+
+menu[m].recipe.forEach(r=>{
+detail+=`${r.parent} (${r.qty} ${getUom(r.parent)})<br>`
+})
+
+menuTable.innerHTML+=`
+
+<tr>
+
+<td>${m}</td>
+<td>${menu[m].type}</td>
+<td class="recipeBox">${detail}</td>
+
+<td>
+
+<button class="delete" onclick="deleteMenu('${m}')">Delete</button>
+
+</td>
+
+</tr>
+
+`
+
+})
+
+targets.innerHTML=""
+
+Object.keys(menu).forEach(m=>{
+
+targets.innerHTML+=`
+
+${m}
+
+<input type="number"
+
+onchange="target['${m}']=Number(this.value);calculate()"
+
+> porsi
+
+<br>
+
+`
+
+})
+
+}
+
+render()
+
+</script>
+
+</body>
+</html>
